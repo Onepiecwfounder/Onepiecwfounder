@@ -1,0 +1,102 @@
+--= Premium Farm Hub (Private Server Safe) =--
+-- For educational purposes only
+
+local Player = game:GetService("Players").LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local TweenService = game:GetService("TweenService")
+
+--= GUI SETUP =--
+local GUI = Instance.new("ScreenGui")
+GUI.Name = "EliteFarmHub"
+GUI.Parent = Player:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0.35, 0, 0.6, 0)
+MainFrame.Position = UDim2.new(0.32, 0, 0.2, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+MainFrame.Parent = GUI
+
+--= SAFETY SYSTEMS =--
+local SAFETY = {
+    lastAction = 0,
+    cooldown = 1.5, -- Minimum delay between actions
+    maxActions = 30, -- Max actions per minute
+    actionCount = 0
+}
+
+local function isSafe()
+    local now = os.clock()
+    if now - SAFETY.lastAction < SAFETY.cooldown then return false end
+    
+    SAFETY.lastAction = now
+    SAFETY.actionCount += 1
+    
+    if SAFETY.actionCount > SAFETY.maxActions then
+        warn("Safety cooldown activated (60s)")
+        task.wait(60)
+        SAFETY.actionCount = 0
+    end
+    
+    return true
+end
+
+--= SMART TELEPORT =--
+local function safeTeleport(cframe)
+    if not isSafe() then return end
+    
+    local tween = TweenService:Create(
+        HumanoidRootPart,
+        TweenInfo.new(0.8),
+        {CFrame = cframe + Vector3.new(math.random(-3,3), 0, math.random(-3,3))}
+    )
+    tween:Play()
+end
+
+--= AUTO-FARM FUNCTIONS =--
+local function farmBoss(bossName)
+    while task.wait(1.5) do
+        local boss = workspace:FindFirstChild(bossName)
+        if boss and boss:FindFirstChild("HumanoidRootPart") then
+            safeTeleport(boss.HumanoidRootPart.CFrame * CFrame.new(0, 0, -8))
+            
+            -- Replace with your game's combat remote
+            game:GetService("ReplicatedStorage").Remotes.Combat:FireServer()
+        end
+    end
+end
+
+local function collectFruits()
+    for _,fruit in pairs(workspace:GetChildren()) do
+        if fruit.Name:find(" Fruit") and fruit:FindFirstChild("Handle") then
+            safeTeleport(fruit.Handle.CFrame)
+            fireproximityprompt(fruit.Handle.ProximityPrompt)
+            task.wait(1.5)
+        end
+    end
+end
+
+--= GUI BUTTONS =--
+local function createButton(text, callback)
+    local btn = Instance.new("TextButton")
+    btn.Text = text
+    btn.Size = UDim2.new(0.9, 0, 0.1, 0)
+    btn.Position = UDim2.new(0.05, 0, 0.1 + (#MainFrame:GetChildren() * 0.12), 0)
+    btn.Parent = MainFrame
+    btn.MouseButton1Click:Connect(callback)
+end
+
+createButton("Farm Cake Prince", function()
+    coroutine.wrap(farmBoss)("Cake Prince")
+end)
+
+createButton("Collect Fruits", function()
+    coroutine.wrap(collectFruits)()
+end)
+
+--= TOGGLE GUI =--
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        GUI.Enabled = not GUI.Enabled
+    end
+end)
